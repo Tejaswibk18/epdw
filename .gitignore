@@ -1,0 +1,14 @@
+# Python virtual environment
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local dummy directory where downloads are saved
+dummy/
+
+# macOS / Windows system files
+.DS_Store
+Thumbs.db
