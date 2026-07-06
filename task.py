@@ -2,7 +2,6 @@ import os
 import stat
 import posixpath
 import paramiko
-import json
 from getpass import getpass
 
 # -----------------------------
@@ -63,11 +62,7 @@ try:
     def classify_executable(remote_path, item):
         filename = item.filename.lower()
         
-        # 1. Text/Data files (e.g. .txt, .log, .json, .csv)
-        if filename.endswith((".txt", ".log", ".json", ".csv", ".ini", ".xml")):
-            return 'data'
-            
-        # 2. Windows .exe file
+        # 1. Windows .exe file
         if filename.endswith(".exe"):
             return 'windows'
         
@@ -102,8 +97,7 @@ try:
         result = {
             "linux": [],
             "windows": [],
-            "arm": [],
-            "data": []
+            "arm": []
         }
 
         def walk(path):
@@ -148,36 +142,6 @@ try:
                 except Exception as e:
                     print(f"  Error: {e}")
 
-    def save_metadata(results, local_base_dir):
-        """
-        Saves the results dictionary as a JSON metadata file inside local_base_dir.
-        Also saves individual txt files listing the files in each category.
-        """
-        # Ensure the base directory exists
-        os.makedirs(local_base_dir, exist_ok=True)
-        
-        # Save a master JSON summary
-        json_path = os.path.join(local_base_dir, "summary.json")
-        try:
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(results, f, indent=4)
-            print(f"Saved metadata summary to {json_path}")
-        except Exception as e:
-            print(f"Failed to save metadata summary: {e}")
-            
-        # Save text file lists inside each category directory
-        for category, remote_paths in results.items():
-            category_dir = os.path.join(local_base_dir, category)
-            os.makedirs(category_dir, exist_ok=True)
-            txt_path = os.path.join(category_dir, "files.txt")
-            try:
-                with open(txt_path, 'w', encoding='utf-8') as f:
-                    for path in remote_paths:
-                        f.write(path + "\n")
-                print(f"Saved {category} file list to {txt_path}")
-            except Exception as e:
-                print(f"Failed to save {category} file list: {e}")
-
     print("\nSearching DEV...")
     dev_result = search_executables(DEV_PATH)
 
@@ -189,10 +153,6 @@ try:
 
     print("\n========== PROD ==========")
     print(prod_result)
-
-    # Save found files metadata
-    save_metadata(dev_result, LOCAL_DEV_DIR)
-    save_metadata(prod_result, LOCAL_PROD_DIR)
 
     # Download found files
     download_results(dev_result, DEV_PATH, LOCAL_DEV_DIR)
