@@ -21,15 +21,8 @@ else:
 
 folder_path = input("Base Folder Path: ").strip()
 
-# Example:
-# folder_path = /home/builds
-#
-# It will search:
-# /home/builds/dev
-# /home/builds/prod
-
-DEV_PATH = posixpath.join(folder_path, "dev")
-PROD_PATH = posixpath.join(folder_path, "prod")
+# The script will search the entire base folder path for executables
+# and copy all found files into both local dev and prod directories.
 
 # Hardcoded local dummy directories
 LOCAL_DEV_DIR = r"c:\Users\User\Desktop\code\path\dummy\dev"
@@ -61,11 +54,11 @@ try:
 
     def classify_executable(remote_path, item):
         filename = item.filename.lower()
-        
+
         # 1. Windows .exe file
         if filename.endswith(".exe"):
             return 'windows'
-        
+
         # 2. Executable permission check
         if is_executable(item.st_mode):
             # Try reading ELF header to differentiate Linux vs ARM
@@ -81,7 +74,7 @@ try:
                             return 'linux'
             except Exception:
                 pass
-            
+
             # Fallback to filename-based check
             if "arm" in filename or "aarch64" in filename:
                 return 'arm'
@@ -91,8 +84,8 @@ try:
 
     def search_executables(remote_path):
         """
-        Searches recursively for:
-        Linux executables, Windows .exe, ARM binaries, Data files
+        Searches the base folder recursively for:
+        Linux executables, Windows .exe, ARM binaries
         """
         result = {
             "linux": [],
@@ -118,45 +111,43 @@ try:
 
     def download_results(results, remote_base_path, local_base_dir):
         """
-        Downloads the files in results dictionary to local_base_dir,
-        preserving the categories: 'windows', 'linux', 'arm' and their relative directory structure.
+        Downloads all found executables to the given local_base_dir,
+        placing each file into its category subfolder (linux/windows/arm).
         """
         print(f"\nDownloading files from {remote_base_path} to {local_base_dir}...")
         for category, remote_paths in results.items():
             category_dir = os.path.join(local_base_dir, category)
             for remote_path in remote_paths:
-                try:
-                    rel_path = posixpath.relpath(remote_path, remote_base_path)
-                except ValueError:
-                    rel_path = posixpath.basename(remote_path)
-                
-                local_path = os.path.join(category_dir, rel_path.replace('/', os.sep))
-                
-                # Ensure the local parent directory exists
-                os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                
-                print(f"[{category.upper()}] Downloading {remote_path} -> {local_path} ...")
+                filename = posixpath.basename(remote_path)
+                local_path = os.path.join(category_dir, filename)
+
+                # Ensure the local category directory exists
+                os.makedirs(category_dir, exist_ok=True)
+
+                print(f"[{category.upper()}] {remote_path} -> {local_path} ...")
                 try:
                     sftp.get(remote_path, local_path)
                     print("  Success")
                 except Exception as e:
                     print(f"  Error: {e}")
 
-    print("\nSearching DEV...")
-    dev_result = search_executables(DEV_PATH)
+    # Search the base folder path directly
+    print(f"\nSearching in: {folder_path}")
+    found = search_executables(folder_path)
 
-    print("Searching PROD...")
-    prod_result = search_executables(PROD_PATH)
+    print("\n========== Found Executables ==========")
+    for category, paths in found.items():
+        print(f"  {category.upper()}: {len(paths)} file(s)")
+        for p in paths:
+            print(f"    - {p}")
 
-    print("\n========== DEV ==========")
-    print(dev_result)
+    # Copy all found files into BOTH local dev and prod directories
+    download_results(found, folder_path, LOCAL_DEV_DIR)
+    download_results(found, folder_path, LOCAL_PROD_DIR)
 
-    print("\n========== PROD ==========")
-    print(prod_result)
-
-    # Download found files
-    download_results(dev_result, DEV_PATH, LOCAL_DEV_DIR)
-    download_results(prod_result, PROD_PATH, LOCAL_PROD_DIR)
+    print("\nDone! Files saved to:")
+    print(f"  DEV:  {LOCAL_DEV_DIR}")
+    print(f"  PROD: {LOCAL_PROD_DIR}")
 
 finally:
     ssh.close()
